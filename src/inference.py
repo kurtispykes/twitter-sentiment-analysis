@@ -14,16 +14,16 @@ def predict(model_type: str,
     # read data
     df = pd.read_csv(test_data)
     # combine all the text fields
-    df[config.ALL_TEXT] = df[config.TEXT] + df[config.KEYWORD] + df[config.LOCATION]
+    df[config.ALL_TEXT] = df[config.TEXT] + df[config.KEYWORD].fillna("none") + df[config.LOCATION].fillna("none")
     # process the tweets
     df[config.ALL_TEXT] = df[config.ALL_TEXT].apply(pp.process_tweet)
     predictions = None
     # loop through all folds
     for FOLD in range(5):
         # load the vectorizer
-        vectorizer = joblib.load(os.path.join(model_path, f"count_vec_{model_type}_{FOLD}.pkl"))
+        vectorizer = joblib.load(os.path.join(model_path, f"tfidf_vec_{model_type}_{FOLD}.pkl"))
         df_test = vectorizer.transform(df[config.ALL_TEXT].values)
-        clf = joblib.load(os.path.join(model_path, f"{model_type}_{FOLD}.pkl"))
+        clf = joblib.load(os.path.join(model_path, f"{model_type}_tfidf_{FOLD}.pkl"))
 
         preds = clf.predict(df_test)
 

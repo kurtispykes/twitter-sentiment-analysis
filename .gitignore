@@ -141,3 +141,5 @@ cython_debug/
 .inputs
 inputs/
 *.csv
+
+*.pkl

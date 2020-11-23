@@ -5,6 +5,7 @@ MODIFIED_TRAIN = DATA_DIR + "modified_train.csv"
 TEST_DATA = DATA_DIR + "test.csv"
 SUBMISSION = DATA_DIR + "sample_submission.csv"
 MODEL_DIR = "../models/"
+IMAGES = "../images/"
 
 # features
 ID = "id"

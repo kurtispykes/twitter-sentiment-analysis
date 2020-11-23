@@ -3,3 +3,5 @@ numpy==1.19.4
 scikit-learn==0.23.2
 kaggle==1.5.8
 nltk==3.5
+matplotlib==3.3.3
+

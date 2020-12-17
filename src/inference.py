@@ -1,31 +1,29 @@
 import os
 import argparse
 
+import gensim
 import joblib
 import pandas as pd
 
 import config
-import preprocessing as pp
+import features as f
 
 def predict(model_type: str,
-            test_data:pd.DataFrame=config.TEST_DATA,
+            test_data:pd.DataFrame=config.MODIFIED_TEST,
             model_path:str=config.MODEL_DIR
             ):
     # read data
-    df = pd.read_csv(test_data)
-    # combine all the text fields
-    df[config.ALL_TEXT] = df[config.TEXT] + df[config.KEYWORD].fillna("none") + df[config.LOCATION].fillna("none")
-    # process the tweets
-    df[config.ALL_TEXT] = df[config.ALL_TEXT].apply(pp.process_tweet)
+    df_test = pd.read_csv(test_data)
+    # load train embeddings
+    wv_model = gensim.models.Word2Vec.load(f"{config.MODEL_DIR}SKIP_GRAM_{model_type}_/SKIP_GRAM_embeddings")
+    X = pd.DataFrame(f.get_embeddings(df_test[config.TOKENS], wv_model))
+
     predictions = None
     # loop through all folds
     for FOLD in range(5):
-        # load the vectorizer
-        vectorizer = joblib.load(os.path.join(model_path, f"tfidf_vec_{model_type}_{FOLD}.pkl"))
-        df_test = vectorizer.transform(df[config.ALL_TEXT].values)
-        clf = joblib.load(os.path.join(model_path, f"{model_type}_tfidf_{FOLD}.pkl"))
-
-        preds = clf.predict(df_test)
+        # load the classifier
+        clf = joblib.load(os.path.join(model_path, f"SKIP_GRAM_{model_type}_/{model_type}_SKIP_GRAM_{FOLD}.pkl"))
+        preds = clf.predict(X)
 
         if FOLD == 0:
             predictions = preds
@@ -47,4 +45,4 @@ if __name__ == "__main__":
     submission = predict(model_type=args.model_type)
     sample_sub = pd.read_csv(config.SUBMISSION)
     sample_sub.loc[:, config.TARGET] = submission
-    sample_sub.to_csv(f"{config.MODEL_DIR}{args.model_type}.csv", index=False)
+    sample_sub.to_csv(f"{config.MODEL_DIR}SKIP_GRAM_{args.model_type}_/{args.model_type}.csv", index=False)

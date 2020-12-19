@@ -1,9 +1,10 @@
 import os
 import argparse
 
-import gensim
 import joblib
+import numpy as np
 import pandas as pd
+from gensim.models import KeyedVectors, Word2Vec
 
 import config
 import features as f
@@ -15,14 +16,13 @@ def predict(model_type: str,
     # read data
     df_test = pd.read_csv(test_data)
     # load train embeddings
-    wv_model = gensim.models.Word2Vec.load(f"{config.MODEL_DIR}SKIP_GRAM_{model_type}_/SKIP_GRAM_embeddings")
+    wv_model = KeyedVectors.load(f"{config.MODEL_DIR}SKIP_GRAM_{model_type}_/SKIP_GRAM_embeddings.bin")
     X = pd.DataFrame(f.get_embeddings(df_test[config.TOKENS], wv_model))
-
     predictions = None
     # loop through all folds
     for FOLD in range(5):
         # load the classifier
-        clf = joblib.load(os.path.join(model_path, f"SKIP_GRAM_{model_type}_/{model_type}_SKIP_GRAM_{FOLD}.pkl"))
+        clf = joblib.load(f"{model_path}/SKIP_GRAM_{model_type}_/{model_type}_SKIP_GRAM_{FOLD}.pkl")
         preds = clf.predict(X)
 
         if FOLD == 0:

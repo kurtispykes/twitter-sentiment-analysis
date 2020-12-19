@@ -1,10 +1,10 @@
 import os
 import argparse
 
+import nltk
 import joblib
 import gensim
 import pandas as pd
-import nltk
 from nltk.tokenize import word_tokenize
 from sklearn.model_selection import StratifiedKFold
 from sklearn import metrics
@@ -31,8 +31,12 @@ def run_training(model:str) -> None:
     df_train = df_train.sample(frac=1, random_state=42).reset_index(drop=True)
 
     # join text on train and test data
-    df_train[config.ALL_TEXT] = df_train[config.TEXT]
-    df_test[config.ALL_TEXT] = df_test[config.TEXT]
+    df_train[config.ALL_TEXT] = df_train[config.TEXT] + " " + \
+                                df_train[config.KEYWORD].fillna("NONE") + " " + \
+                                df_train[config.LOCATION].fillna("NONE")
+    df_test[config.ALL_TEXT] = df_test[config.TEXT] + " " + \
+                               df_test[config.KEYWORD].fillna("NONE") + " " + \
+                               df_test[config.LOCATION].fillna("NONE")
 
     # clean the newly joined full text
     df_train[config.CLEANED_TEXT] = df_train[config.ALL_TEXT].apply(lambda x: pp.process_tweet(x))
@@ -46,12 +50,12 @@ def run_training(model:str) -> None:
     corpus = list(f.fn_pre_process_data(df_train[config.CLEANED_TEXT]))
     corpus += list(f.fn_pre_process_data(df_test[config.CLEANED_TEXT]))
 
-    # train Word2vec (CBOW)
-    wv_model = gensim.models.Word2Vec(sentences=corpus, size=150, window=3, min_count=2, sg=1)
-    wv_model.train(corpus, total_examples=len(corpus), epochs=10)
+    # train Word2vec (SKIP)
+    wv_model = gensim.models.Word2Vec(sentences=corpus, size=150, window=3, min_count=2, sg=1, seed=42)
+    wv_model.train(sentences=corpus, total_examples=wv_model.corpus_count, epochs=10)
     path = os.path.join(config.MODEL_DIR, f"SKIP_GRAM_{model}_")
     os.makedirs(path, exist_ok=True)
-    wv_model.save(f"{config.MODEL_DIR}/SKIP_GRAM_{model}_/SKIP_GRAM_embeddings")
+    wv_model.save(f"{config.MODEL_DIR}/SKIP_GRAM_{model}_/SKIP_GRAM_embeddings.bin")
 
     # save the modified train and test data
     df_train.to_csv(config.MODIFIED_TRAIN, index=False)
@@ -63,17 +67,23 @@ def run_training(model:str) -> None:
 
     # initialize kfold
     skf = StratifiedKFold(n_splits=5, shuffle=False)
+    predictions = np.zeros(len(X_test))
     for fold, (train_idx, val_idx) in enumerate(skf.split(X=X, y=y)):
         X_train, X_val = X.loc[train_idx, :], X.loc[val_idx, :]
         y_train, y_val = y.loc[train_idx], y.loc[val_idx]
-
+        # train the model
         clf = model_dispatcher.MODELS[model]
         clf.fit(X_train, y_train)
+
+        # make predictions with the model on the train and validation
         y_preds_train = clf.predict(X_train)
         y_preds_val = clf.predict(X_val)
+
+        # print results
         print(f"Fold {fold}")
         print(f"Train f1: {metrics.f1_score(y_train, y_preds_train)}\n"
-              f"Val {fold}: {metrics.f1_score(y_val, y_preds_val)}\n")
+              f"Val f1: {metrics.f1_score(y_val, y_preds_val)}\n")
+        # serialize the model
         joblib.dump(clf, f"{config.MODEL_DIR}/SKIP_GRAM_{model}_/{model}_SKIP_GRAM_{fold}.pkl")
 
 if __name__ == "__main__":

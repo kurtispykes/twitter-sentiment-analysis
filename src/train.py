@@ -1,20 +1,20 @@
 import os
-import argparse
+import pickle
 
-import nltk
-import joblib
-import gensim
 import pandas as pd
-from nltk.tokenize import word_tokenize
+from tensorflow.keras.layers import Embedding
 from sklearn.model_selection import StratifiedKFold
-from sklearn import metrics
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 import config
-import model_dispatcher
 import preprocessing as pp
 import features as f
+import data_cleaning as data_clean
+from lstm_model import my_LSTM
 
-nltk.download("punkt")
+# GPU Use
+os.environ["KERAS_BACKEND"] = "plaidml.keras.backend"
 
 def run_training(model:str) -> None:
     """
@@ -25,74 +25,74 @@ def run_training(model:str) -> None:
     df_test = pd.read_csv(config.TEST_DATA)
 
     # relabel mislabeled samples
-    df_train = pp.relabel_target(df_train)
+    df_train = data_clean.relabel_target(df_train)
 
     # shuffle data
     df_train = df_train.sample(frac=1, random_state=42).reset_index(drop=True)
 
-    # join text on train and test data
-    df_train[config.ALL_TEXT] = df_train[config.TEXT] + " " + \
-                                df_train[config.KEYWORD].fillna("NONE") + " " + \
-                                df_train[config.LOCATION].fillna("NONE")
-    df_test[config.ALL_TEXT] = df_test[config.TEXT] + " " + \
-                               df_test[config.KEYWORD].fillna("NONE") + " " + \
-                               df_test[config.LOCATION].fillna("NONE")
-
-    # clean the newly joined full text
-    df_train[config.CLEANED_TEXT] = df_train[config.ALL_TEXT].apply(lambda x: pp.process_tweet(x))
-    df_test[config.CLEANED_TEXT] = df_test[config.ALL_TEXT].apply(lambda x: pp.process_tweet(x))
-
-    # create tokens
-    df_train[config.TOKENS] = df_train[config.CLEANED_TEXT].apply(lambda x: word_tokenize(x))
-    df_test[config.TOKENS] = df_test[config.CLEANED_TEXT].apply(lambda x: word_tokenize(x))
-
-    # create a corpus to train embeddings
-    corpus = list(f.fn_pre_process_data(df_train[config.CLEANED_TEXT]))
-    corpus += list(f.fn_pre_process_data(df_test[config.CLEANED_TEXT]))
-
-    # train Word2vec (SKIP)
-    wv_model = gensim.models.Word2Vec(sentences=corpus, size=150, window=3, min_count=2, sg=1, seed=42)
-    wv_model.train(sentences=corpus, total_examples=wv_model.corpus_count, epochs=10)
-    path = os.path.join(config.MODEL_DIR, f"SKIP_GRAM_{model}_")
-    os.makedirs(path, exist_ok=True)
-    wv_model.save(f"{config.MODEL_DIR}/SKIP_GRAM_{model}_/SKIP_GRAM_embeddings.bin")
+    # clean the text
+    df_train[config.CLEANED_TEXT] = df_train[config.TEXT].apply(lambda x: pp.clean_tweet(x))
+    df_test[config.CLEANED_TEXT] = df_test[config.TEXT].apply(lambda x: pp.clean_tweet(x))
 
     # save the modified train and test data
     df_train.to_csv(config.MODIFIED_TRAIN, index=False)
     df_test.to_csv(config.MODIFIED_TEST, index=False)
+    del df_test
 
-    # get the word embeddings
-    X = pd.DataFrame(f.get_embeddings(df_train[config.TOKENS], wv_model))
-    y = df_train[config.RELABELED_TARGET].copy()
+    # convert text to numerical representation
+    tokenizer = Tokenizer(oov_token="<unk>")
+    tokenizer.fit_on_texts(df_train[config.CLEANED_TEXT])
+
+    # path to save model
+    model_path = f"{config.MODEL_DIR}/PRETRAIN_WORD2VEC_{model}/"
+
+    # saving tokenizer
+    with open(f'{model_path}tokenizer.pkl', 'wb') as handle:
+        pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # pad the sequences
+    X = pad_sequences(tokenizer.texts_to_matrix(df_train[config.CLEANED_TEXT]), maxlen=config.MAXLEN)
+
+    # get the pretrained word embeddings and prepare embedding layer
+    embedding_matrix = f.get_word2vec_enc(tokenizer.word_index.items(), config.PRETRAINED_WORD2VEC)
+    embedding_layer = Embedding(input_dim=config.VOCAB_SIZE,
+                                output_dim=config.EMBED_SIZE,
+                                weights=[embedding_matrix],
+                                input_length=config.MAXLEN,
+                                trainable=False)
+
+    # target values
+    y = df_train[config.RELABELED_TARGET].values
 
     # initialize kfold
-    skf = StratifiedKFold(n_splits=5, shuffle=False)
-    predictions = np.zeros(len(X_test))
+    skf = StratifiedKFold(n_splits=config.N_SPLITS, shuffle=False)
+    predictions = None
     for fold, (train_idx, val_idx) in enumerate(skf.split(X=X, y=y)):
-        X_train, X_val = X.loc[train_idx, :], X.loc[val_idx, :]
-        y_train, y_val = y.loc[train_idx], y.loc[val_idx]
+        X_train, X_val = X[train_idx, :], X[val_idx, :]
+        y_train, y_val = y[train_idx], y[val_idx]
+        #
         # train the model
-        clf = model_dispatcher.MODELS[model]
-        clf.fit(X_train, y_train)
+        clf = my_LSTM(embedding_layer)
+        model_history = clf.fit(X_train, y_train,
+                                epochs=config.N_EPOCHS,
+                                verbose=1)
 
-        # make predictions with the model on the train and validation
-        y_preds_train = clf.predict(X_train)
-        y_preds_val = clf.predict(X_val)
+        # evaluate test
+        evaluation = clf.evaluate(X_val, y_val)
 
         # print results
         print(f"Fold {fold}")
-        print(f"Train f1: {metrics.f1_score(y_train, y_preds_train)}\n"
-              f"Val f1: {metrics.f1_score(y_val, y_preds_val)}\n")
-        # serialize the model
-        joblib.dump(clf, f"{config.MODEL_DIR}/SKIP_GRAM_{model}_/{model}_SKIP_GRAM_{fold}.pkl")
+        print(f"Train Acc: {model_history.history['accuracy']}\n",
+              f"Val scores: {list(zip(clf.metrics_names, evaluation))}\n")
+
+        # checking the folder exist
+        if not os.path.exists(model_path):
+            os.makedirs(model_path)
+
+        # persist the model
+        clf.save(f"{model_path}/{model}_Word2Vec_{fold}.h5")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model",
-        type=str
-    )
-    args = parser.parse_args()
-    run_training(model=args.model)
+    run_training("LSTM")
 
 

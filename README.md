@@ -28,9 +28,12 @@ whether a given tweet is about a real disaster or not. If so, predict a 1. If no
     - This will train an LSTM and create a directory with the `models` directory called `PRETRAIN_WORD2VEC_LSTM` with
     the serialized LSTM and tokenizer inside it. 
     
+- View all explorations in `notebook` directory
+    
 ## Extending This Work
 Some ideas to extend this work: 
 - Use Different word embeddings
 - Try LSTM with attention (See [Attention in Long Short-Term Memory Recurrent Neural Networks](https://machinelearningmastery.com/attention-long-short-term-memory-recurrent-neural-networks/))
 - Use a transformer model
-- Correct misspelled words  
+- Correct misspelled words 
+- Dealing with overfitting 

@@ -8,7 +8,7 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 import config
 import preprocessing as pp
 
-def predict(model: str, test_data:pd.DataFrame = config.MODIFIED_TEST):
+def predict_test(model:str, test_data:pd.DataFrame= config.MODIFIED_TEST):
 
     # path to model
     model_path = f"{config.MODEL_DIR}/PRETRAIN_WORD2VEC_{model}/"
@@ -17,34 +17,24 @@ def predict(model: str, test_data:pd.DataFrame = config.MODIFIED_TEST):
     df_test = pd.read_csv(test_data)
 
     # do cleaning to text
-    df_test[config.CLEANED_TEXT] = df_test[config.TEXT].apply(lambda x: pp.clean_tweet(x))
+    df_test[config.CLEANED_TEXT] = df_test[config.TEXT].apply(pp.clean_tweet)
 
     # loading tokenizer
     with open(f'{model_path}tokenizer.pkl', 'rb') as handle:
         tokenizer = pickle.load(handle)
 
     # convert tokens to sequences and pad them
-    data_values = tokenizer.texts_to_sequences(df_test[config.CLEANED_TEXT])
-    X = pad_sequences(data_values, maxlen=config.MAXLEN)
+    data_values = tokenizer.texts_to_sequences(df_test[config.CLEANED_TEXT].values)
+    X_padded = pad_sequences(data_values, maxlen=config.MAXLEN)
 
-    # use all 5 models to make predictions
-    # divide the output of each model by 5
-    predictions = None
-    # loop through all folds
-    for FOLD in range(5):
-        # load the classifier
-        clf = load_model(f"{model_path}{model}_Word2Vec_{FOLD}.h5")
-        preds = np.argmax(clf.predict(X), axis=-1)
-
-        if FOLD == 0:
-            predictions = preds
-        else:
-            predictions += preds
+    # load the classifier
+    clf = load_model(f"{model_path}{model}_Word2Vec .h5")
+    predictions = clf.predict_classes(X_padded, verbose=-1)
 
     return predictions
 
 if __name__ == "__main__":
-    submission = predict(model="LSTM")
+    submission = predict_test(model="LSTM")
     sample_sub = pd.read_csv(config.SUBMISSION)
     sample_sub.loc[:, config.TARGET] = submission
     sample_sub.to_csv(f"{config.MODEL_DIR}PRETRAIN_WORD2VEC_LSTM/LSTM.csv", index=False)

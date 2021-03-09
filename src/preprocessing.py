@@ -9,7 +9,7 @@ nltk.download("stopwords")
 
 def clean_tweet(tweet:str) -> str:
     """
-    Clean the hashtags, hyperlinks, and punctuation from tweets and convert all text to lowercase
+    Convert all text to lowercase, remove stock market tickers, RT symbol, hyperlinks and the hastag symbol
     :param tweet: tweet by a unique user
     :return: cleaned string without hashtags, emojis, and punctuation
     """
@@ -24,16 +24,13 @@ def clean_tweet(tweet:str) -> str:
     # remove hashtags
     # only removing the hash # sign from the word
     tweet = re.sub(r'#', '', str(tweet))
-
-    # remove stopwords
-    stop_words = set(stopwords.words())
-    tweet = [word for word in tweet if word not in stop_words]
-
+    
     # remove punctuation
-    tweets_cleaned = []
-    for word in tweet:
-        if word not in string.punctuation and word:
-            tweets_cleaned.append(word)
-
-    return "".join(tweets_cleaned)
-
+    punct = set(string.punctuation)
+    tweet = "".join(ch for ch in tweet if ch not in punct)
+    
+    # remove stopwords
+    stop_words = set(stopwords.words("english"))
+    tweet = " ".join(word for word in tweet.split() if word not in stop_words)
+    
+    return tweet

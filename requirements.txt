@@ -1,7 +1,14 @@
-pandas==1.1.4
-numpy==1.19.4
-scikit-learn==0.23.2
-kaggle==1.5.8
 nltk==3.5
-matplotlib==3.3.3
+numpy==1.19.4
+gradio==1.6.3
+gensim==3.8.3
+pandas==1.1.4
+plotly==4.14.3
+jupyter==1.0.0
+lightgbm==3.1.1
+seaborn==0.11.1
+wordcloud==1.8.1
+tensorflow==2.4.1
+plaidml-keras==0.7.0
+scikit-learn==0.23.2
 

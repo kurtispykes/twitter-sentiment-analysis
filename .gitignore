@@ -140,6 +140,6 @@ cython_debug/
 # Data
 .inputs
 inputs/
+models/
 *.csv
-
 *.pkl

@@ -27,6 +27,8 @@ whether a given tweet is about a real disaster or not. If so, predict a 1. If no
     - Then run `python train.py`
     - This will train an LSTM and create a directory with the `models` directory called `PRETRAIN_WORD2VEC_LSTM` with
     the serialized LSTM and tokenizer inside it. 
+    - Once you've trained the model, you could run your own examples by running the `user_interface.py` script in the top level directory. 
+    this will provide you with a private link. Once selected, input some text that you'd like to determine whether it's a disaster or not.
     
 - View all explorations in `notebook` directory
     

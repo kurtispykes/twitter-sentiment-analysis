@@ -39,3 +39,9 @@ Some ideas to extend this work:
 - Use a transformer model
 - Correct misspelled words 
 - Dealing with overfitting 
+
+## Write Ups about This Project
+- [Sentiment Analysis: Predicting Whether A Tweet Is About A Disaster](https://towardsdatascience.com/sentiment-analysis-predicting-whether-a-tweet-is-about-a-disaster-c004d09d7245?source=your_stories_page-------------------------------------)
+- [Combating Overfitting In Deep Learning](https://towardsdatascience.com/combating-overfitting-in-deep-learning-efb0fdabfccc?source=your_stories_page-------------------------------------)
+- [Level Up Your Data Science Project With A Graphical Interface](https://towardsdatascience.com/level-up-your-data-science-project-with-a-graphical-interface-cb5704792509?source=your_stories_page-------------------------------------)
+

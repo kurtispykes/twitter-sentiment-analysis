@@ -34,6 +34,7 @@ whether a given tweet is about a real disaster or not. If so, predict a 1. If no
     
 ## Extending This Work
 Some ideas to extend this work: 
+- Methods to reduce inference time
 - Use Different word embeddings
 - Try LSTM with attention (See [Attention in Long Short-Term Memory Recurrent Neural Networks](https://machinelearningmastery.com/attention-long-short-term-memory-recurrent-neural-networks/))
 - Use a transformer model
